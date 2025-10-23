@@ -5,6 +5,8 @@ This example shows how to fine-tune a language model with reinforcement learning
 - `reverse_ppo.py`: implementation of PPO-style training with group-based advantages
 - `evaluate.py`: utility for evaluating model checkpoints
 
+The `rl_reverse.ipynb` Colab notebook runs the pipeline:
+- Colab notebook: <a href="https://colab.research.google.com/github/cmu-l3/anlp-fall2025-code/blob/main/16_rl_llm/rl_reverse.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
 
 
 It is possible to run the training locally. To complete the training quickly  we recommend using Colab. Please see the Colab notebook.
