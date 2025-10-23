@@ -32,6 +32,8 @@ learning_rate = args.learning_rate
 num_epochs = args.num_epochs
 num_samples_per_prompt = args.num_samples_per_prompt
 ppo_epochs = args.ppo_epochs
+ppo_epsilon_low = 0.8
+ppo_epsilon_high = 2.0
 grad_clip = args.grad_clip
 save_interval = args.save_interval
 save_overwrite = True
@@ -169,10 +171,12 @@ for epoch in range(num_epochs):
         means = rewards.view(-1, num_samples_per_prompt).mean(dim=1).repeat_interleave(num_samples_per_prompt)
         advantages = rewards - means
 
-        # Normalize by standard deviation of batch, if > 0
+        # Normalize by batch statistics
+        #  https://arxiv.org/pdf/2506.10910, https://arxiv.org/pdf/2006.05990
+        mean = advantages.mean()
         std = advantages.std()
         if std > 0:
-            advantages = advantages / (std + 1e-8)
+            advantages = (advantages - mean) / (std + 1e-8)
 
         # -- Compute old log probabilities
         generated_ids = ids[:, input_ids.size(1):]
@@ -182,7 +186,8 @@ for epoch in range(num_epochs):
                 attention_mask=(ids != tokenizer.pad_token_id).long()
             )
             old_log_probs = torch.log_softmax(old_outputs.logits, dim=-1)
-            old_selected = old_log_probs[:, input_ids.size(1)-1:-1, :].gather(2, generated_ids.unsqueeze(-1)).squeeze(-1)
+            old_selected = old_log_probs[:, input_ids.size(1)-1:-1, :].gather(
+                2, generated_ids.unsqueeze(-1)).squeeze(-1)
 
         # -- PPO-style loss and updates
         for ppo_epoch in range(ppo_epochs):
@@ -200,7 +205,7 @@ for epoch in range(num_epochs):
 
             #  PPO clipped objective
             ratio = torch.exp(selected_log_probs - old_selected)
-            clipped_ratio = torch.clamp(ratio, 0.8, 2.0)
+            clipped_ratio = torch.clamp(ratio, ppo_epsilon_low, ppo_epsilon_high)
             loss = -torch.min(ratio * advantages.unsqueeze(-1), clipped_ratio * advantages.unsqueeze(-1))
 
             # Mask loss after the first <|endoftext|> token
